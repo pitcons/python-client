@@ -200,12 +200,13 @@ def _get_upload_headers(file_obj):
     }
 
 
-def _build_http_request(session, url, method, headers=None, encoding=None, params=empty_params):
+def _build_http_request(session, url, method, headers=None, encoding=None, params=empty_params, auth=None):
     """
     Make an HTTP request and return an HTTP response.
     """
     opts = {
-        "headers": headers or {}
+        "headers": headers or {},
+        "auth": auth
     }
 
     if params.query:
@@ -334,7 +335,7 @@ def _handle_inplace_replacements(document, link, link_ancestors):
 class HTTPTransport(BaseTransport):
     schemes = ['http', 'https']
 
-    def __init__(self, credentials=None, headers=None, auth=None, session=None, request_callback=None, response_callback=None):
+    def __init__(self, credentials=None, headers=None, auth=None, session=None, request_callback=None, response_callback=None, auth=None):
         if headers:
             headers = {key.lower(): value for key, value in headers.items()}
         if session is None:
@@ -361,6 +362,7 @@ class HTTPTransport(BaseTransport):
 
         self._headers = itypes.Dict(headers or {})
         self._session = session
+        self._auth = auth
 
     @property
     def headers(self):
@@ -374,8 +376,13 @@ class HTTPTransport(BaseTransport):
         url = _get_url(link.url, params.path)
         headers = _get_headers(url, decoders)
         headers.update(self.headers)
+        auth = self._auth
 
-        request = _build_http_request(session, url, method, headers, encoding, params)
+        request = _build_http_request(session, url, method, headers, encoding, params, auth)
+
+        if self._request_callback is not None:
+            self._request_callback(request)
+
         response = session.send(request)
         result = _decode_result(response, decoders, force_codec)
 
